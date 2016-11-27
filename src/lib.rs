@@ -165,17 +165,38 @@ pub struct Bucket {
     region: Option<String>,
     access_key: String,
     secret_key: String,
-    link: Link
+    link: Link,
+    provider_host: ProviderHost
 }
 
+pub struct ProviderHost {
+    pub prefix: String,
+    pub host: String
+}
+
+impl ProviderHost {
+    pub fn default() -> ProviderHost {
+        ProviderHost { prefix: "s3".to_owned(), host: "amazonaws.com".to_owned() }
+    }
+}
 
 impl Bucket {
   /// Instantiate a new `Bucket`, in case `Link` is not provided a `Link::default()` is generated.
   pub fn new(name: String,
+              region: Option<String>,
+              access_key: String,
+              secret_key: String,
+              link: Option<Link>) -> Bucket {
+      Bucket::new_with_provider(name, region, access_key,
+           secret_key, link, ProviderHost::default())
+  }
+
+  pub fn new_with_provider(name: String,
              region: Option<String>,
              access_key: String,
              secret_key: String,
-             link: Option<Link>) -> Bucket {
+             link: Option<Link>,
+             provider_host: ProviderHost) -> Bucket {
       Bucket {
           name: name,
           region: region,
@@ -184,7 +205,8 @@ impl Bucket {
           link: match link {
                   Some(x) => x,
                   None => Link::default()
-                }
+                },
+          provider_host: provider_host
       }
   }
 
@@ -339,11 +361,14 @@ impl Bucket {
   }
 
   pub fn host(&self) -> String {
-      format!("{}.s3{}.amazonaws.com", self.name,
-              match self.region {
+      format!("{bucket_name}.{prefix}{region}.{host}",
+              bucket_name = self.name,
+              prefix = self.provider_host.prefix,
+              region = match self.region {
                   Some(ref r) => format!("-{}", r),
                   None => String::new(),
-              })
+              },
+              host = self.provider_host.host)
   }
 
   fn auth(&self, verb: &str, date: &str, path: &str,
